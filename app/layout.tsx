@@ -1,10 +1,9 @@
-import "./globals.css";
-import Navbar from "@/components/navbar"; // lowercase matches filename
+"use client";
 
-export const metadata = {
-  title: "ReLoop X",
-  description: "Closed-loop circular economy platform",
-};
+import "./globals.css";
+import { SessionProvider } from "next-auth/react";
+import Navbar from "../components/navbar";
+import Footer from "../components/Footer";
 
 export default function RootLayout({
   children,
@@ -13,9 +12,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-green-50 text-gray-900">
-        <Navbar />
-        {children}
+      <body className="bg-white text-gray-900">
+        <SessionProvider>
+          <Navbar />
+          {children}
+          <Footer />
+        </SessionProvider>
       </body>
     </html>
   );

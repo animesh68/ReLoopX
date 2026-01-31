@@ -1,8 +1,11 @@
 "use client";
+
 import Link from "next/link";
 import { useState } from "react";
+import { useSession, signOut } from "next-auth/react";
 
 export default function Navbar() {
+  const { data: session } = useSession();
   const [open, setOpen] = useState(false);
 
   return (
@@ -14,17 +17,36 @@ export default function Navbar() {
           ReLoop<span className="text-gray-800">X</span>
         </Link>
 
-        {/* Desktop Buttons */}
-        <div className="hidden md:flex gap-4">
-
-
+        {/* Desktop */}
+        <div className="hidden md:flex gap-4 items-center">
+          {session && (
+            <span className="text-gray-700 font-medium">
+              Hi, {session.user?.name?.split(" ")[0]} 👋
+            </span>
+          )}
 
           <Link
-            href="/UploadWasteSection.tsx"
+            href="/uploadwasteselection"
             className="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition"
           >
-            Get Started
+            Upload Waste
           </Link>
+
+          {!session ? (
+            <Link
+              href="/auth"
+              className="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition"
+            >
+              Get Started
+            </Link>
+          ) : (
+            <button
+              onClick={() => signOut()}
+              className="bg-red-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-red-600 transition"
+            >
+              Logout
+            </button>
+          )}
         </div>
 
         {/* Mobile Toggle */}
@@ -39,21 +61,39 @@ export default function Navbar() {
       {/* Mobile Menu */}
       {open && (
         <div className="md:hidden bg-white px-4 pb-4 space-y-3 shadow">
+          {session && (
+            <p className="text-center text-gray-700">
+              Hi, {session.user?.name?.split(" ")[0]} 👋
+            </p>
+          )}
+
           <Link
-            href="/upload"
-            className="block bg-green-600 text-black px-4 py-2 rounded-lg font-semibold text-center hover:bg-green-700 transition"
+            href="/uploadwasteselection"
+            className="block bg-green-600 text-white px-4 py-2 rounded-lg font-semibold text-center hover:bg-green-700 transition"
             onClick={() => setOpen(false)}
           >
             Upload Waste
           </Link>
 
-          <Link
-            href="/upload"
-            className="block bg-green-600 text-white px-4 py-2 rounded-lg font-semibold text-center hover:bg-green-700 transition"
-            onClick={() => setOpen(false)}
-          >
-            Get Started
-          </Link>
+          {!session ? (
+            <Link
+              href="/auth"
+              className="block bg-green-600 text-white px-4 py-2 rounded-lg font-semibold text-center hover:bg-green-700 transition"
+              onClick={() => setOpen(false)}
+            >
+              Get Started
+            </Link>
+          ) : (
+            <button
+              onClick={() => {
+                signOut();
+                setOpen(false);
+              }}
+              className="w-full bg-red-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-red-600 transition"
+            >
+              Logout
+            </button>
+          )}
         </div>
       )}
     </nav>
