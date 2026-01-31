@@ -1,14 +1,45 @@
-import NextAuth from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
+import { NextResponse } from "next/server";
 
-const handler = NextAuth({
-  providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
-  ],
-  secret: process.env.NEXTAUTH_SECRET,
-});
+export async function POST(req: Request) {
+  const { lat, lng } = await req.json();
 
-export { handler as GET, handler as POST };
+  // Overpass for recycling nodes
+  const query = `
+    [out:json];
+    (
+      node["amenity"="recycling"](around:5000,${lat},${lng});
+    );
+    out;
+  `;
+
+  const overpass = await fetch(
+    "https://overpass-api.de/api/interpreter",
+    {
+      method: "POST",
+      body: query,
+    }
+  );
+
+  const overData = await overpass.json();
+
+  // Reverse geocode names
+  const results = await Promise.all(
+    overData.elements.slice(0, 5).map(async (r: any) => {
+      const geo = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${r.lat}&lon=${r.lon}&format=json`
+      );
+      const geoData = await geo.json();
+
+      return {
+        name:
+          geoData?.name ||
+          geoData?.address?.road ||
+          "Local Recycling Center",
+        lat: r.lat,
+        lon: r.lon,
+      };
+    })
+  );
+
+  return NextResponse.json(results);
+}

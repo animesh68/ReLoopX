@@ -2,98 +2,126 @@
 import { useState } from "react";
 
 export default function UploadWasteSection() {
-  const [open, setOpen] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [detected, setDetected] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [urgency, setUrgency] = useState("1-2 days");
+  const [recyclers, setRecyclers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const toBase64 = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+  const handleProcess = async () => {
+    if (!file || !quantity) return alert("Upload image & quantity");
+    setLoading(true);
+
+    try {
+      const base64 = (await toBase64(file)).split(",")[1];
+
+      const visionRes = await fetch("/api/classify", {
+        method: "POST",
+        body: JSON.stringify({ image: base64 }),
+      });
+      const visionData = await visionRes.json();
+      setDetected(visionData.category);
+
+      navigator.geolocation.getCurrentPosition(async (pos) => {
+        const recRes = await fetch("/api/recyclers", {
+          method: "POST",
+          body: JSON.stringify({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+          }),
+        });
+
+        const recData = await recRes.json();
+        setRecyclers(recData || []);
+
+        const record = {
+          detectedType: visionData.category,
+          quantity,
+          urgency,
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          recyclers: recData,
+          time: new Date().toISOString(),
+        };
+
+        const prev = JSON.parse(localStorage.getItem("wasteLogs") || "[]");
+        localStorage.setItem("wasteLogs", JSON.stringify([...prev, record]));
+
+        setLoading(false);
+      });
+    } catch {
+      alert("Something went wrong.");
+      setLoading(false);
+    }
+  };
 
   return (
-    <section className="py-24 bg-gray-50 text-center">
-      <h2 className="text-4xl font-bold mb-4 text-gray-900">
-        Upload Your Waste
-      </h2>
-      <p className="text-gray-600 max-w-xl mx-auto mb-8">
-        Generate a smart waste ticket and connect with recycling partners.
-      </p>
+    <section className="py-24 bg-gray-50 text-black text-center">
+      <h2 className="text-4xl font-bold mb-4">Smart Waste Detection</h2>
+
+      <input
+        type="file"
+        accept="image/*"
+        onChange={(e) => setFile(e.target.files?.[0] || null)}
+        className="mb-3"
+      />
+
+      <input
+        placeholder="Quantity (eg: 2kg)"
+        className="border p-2 rounded w-60 mb-3"
+        value={quantity}
+        onChange={(e) => setQuantity(e.target.value)}
+      />
+
+      <select
+        className="border p-2 rounded w-60 mb-4"
+        value={urgency}
+        onChange={(e) => setUrgency(e.target.value)}
+      >
+        <option>1-2 days</option>
+        <option>3-5 days</option>
+        <option>Within a week</option>
+      </select>
+
+      <br />
 
       <button
-        onClick={() => setOpen(true)}
-        className="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition"
+        onClick={handleProcess}
+        className="bg-green-600 text-white px-6 py-3 rounded-lg"
       >
-        Upload Waste
+        Detect & Find Recyclers
       </button>
 
-      {/* POPUP */}
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="bg-white text-gray-900 w-full max-w-lg rounded-xl p-6 relative shadow-xl animate-fadeIn">
+      {loading && <p className="mt-4">Processing...</p>}
 
+      {detected && (
+        <p className="font-bold mt-4">
+          Detected Waste Type:{" "}
+          <span className="text-green-700">{detected}</span>
+        </p>
+      )}
 
-            <button
-              className="absolute top-3 right-3 text-xl"
-              onClick={() => setOpen(false)}
+      {recyclers.length > 0 && (
+        <div className="mt-8 max-w-xl mx-auto">
+          <h3 className="font-semibold mb-2">Nearby Recyclers:</h3>
+          {recyclers.map((r, i) => (
+            <div
+              key={i}
+              className="bg-white p-3 rounded shadow mb-2 text-left"
             >
-              ✕
-            </button>
-
-            <h3 className="text-2xl font-bold mb-4 text-gray-900">
-              Generate Waste Ticket
-            </h3>
-
-            <form className="space-y-4">
-              {/* Image */}
-              <div>
-                <label className="block text-sm font-medium">Upload Image</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="w-full mt-1"
-                />
-              </div>
-
-              {/* Waste Type */}
-              <div>
-                <label className="block text-sm font-medium">Waste Type</label>
-                <select className="w-full mt-1 border rounded-lg p-2">
-                  <option>Organic</option>
-                  <option>Metals</option>
-                  <option>E-Waste</option>
-                  <option>Plastic</option>
-                  <option>Glass</option>
-                  <option>Paper</option>
-                  <option>Others</option>
-                </select>
-              </div>
-
-              {/* Urgency */}
-              <div>
-                <label className="block text-sm font-medium">
-                  Pickup Urgency
-                </label>
-                <select className="w-full mt-1 border rounded-lg p-2">
-                  <option>Within 1 day</option>
-                  <option>2–3 days</option>
-                  <option>4–5 days</option>
-                  <option>Within a week</option>
-                </select>
-              </div>
-
-              {/* Location */}
-              <div>
-                <label className="block text-sm font-medium">Your Location</label>
-                <input
-                  type="text"
-                  placeholder="Enter your area / city"
-                  className="w-full mt-1 border rounded-lg p-2"
-                />
-              </div>
-
-              {/* Submit */}
-              <button
-                type="submit"
-                className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition"
-              >
-                Generate Waste Ticket
-              </button>
-            </form>
-          </div>
+              <p className="font-bold">{r.display}</p>
+              <p className="text-sm text-gray-700">{r.address}</p>
+            </div>
+          ))}
         </div>
       )}
     </section>
