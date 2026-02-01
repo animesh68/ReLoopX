@@ -1,129 +1,137 @@
 "use client";
 import { useState } from "react";
 
+type Recycler = {
+  name: string;
+  lat: number;
+  lon: number;
+};
+
 export default function UploadWasteSection() {
   const [file, setFile] = useState<File | null>(null);
-  const [detected, setDetected] = useState("");
-  const [quantity, setQuantity] = useState("");
+  const [weight, setWeight] = useState("");
   const [urgency, setUrgency] = useState("1-2 days");
-  const [recyclers, setRecyclers] = useState<any[]>([]);
+  const [detected, setDetected] = useState<string | null>(null);
+  const [recyclers, setRecyclers] = useState<Recycler[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const toBase64 = (file: File) =>
-    new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
+  const detectAndFind = async () => {
+    if (!file) return alert("Please upload an image");
+
+    setLoading(true);
+    setDetected(null);
+    setRecyclers([]);
+
+    const form = new FormData();
+    form.append("file", file);
+
+    const classifyRes = await fetch("/api/classify", {
+      method: "POST",
+      body: form,
     });
 
-  const handleProcess = async () => {
-    if (!file || !quantity) return alert("Upload image & quantity");
-    setLoading(true);
+    const classifyData = await classifyRes.json();
+    setDetected(classifyData.type || "Unknown");
 
-    try {
-      const base64 = (await toBase64(file)).split(",")[1];
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
 
-      const visionRes = await fetch("/api/classify", {
+      const res = await fetch("/api/recyclers", {
         method: "POST",
-        body: JSON.stringify({ image: base64 }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lat, lng }),
       });
-      const visionData = await visionRes.json();
-      setDetected(visionData.category);
 
-      navigator.geolocation.getCurrentPosition(async (pos) => {
-        const recRes = await fetch("/api/recyclers", {
-          method: "POST",
-          body: JSON.stringify({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-          }),
-        });
-
-        const recData = await recRes.json();
-        setRecyclers(recData || []);
-
-        const record = {
-          detectedType: visionData.category,
-          quantity,
-          urgency,
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          recyclers: recData,
-          time: new Date().toISOString(),
-        };
-
-        const prev = JSON.parse(localStorage.getItem("wasteLogs") || "[]");
-        localStorage.setItem("wasteLogs", JSON.stringify([...prev, record]));
-
-        setLoading(false);
-      });
-    } catch {
-      alert("Something went wrong.");
+      const data = await res.json();
+      setRecyclers(data || []);
       setLoading(false);
-    }
+    });
   };
 
   return (
-    <section className="py-24 bg-gray-50 text-black text-center">
-      <h2 className="text-4xl font-bold mb-4">Smart Waste Detection</h2>
-
-      <input
-        type="file"
-        accept="image/*"
-        onChange={(e) => setFile(e.target.files?.[0] || null)}
-        className="mb-3"
-      />
-
-      <input
-        placeholder="Quantity (eg: 2kg)"
-        className="border p-2 rounded w-60 mb-3"
-        value={quantity}
-        onChange={(e) => setQuantity(e.target.value)}
-      />
-
-      <select
-        className="border p-2 rounded w-60 mb-4"
-        value={urgency}
-        onChange={(e) => setUrgency(e.target.value)}
-      >
-        <option>1-2 days</option>
-        <option>3-5 days</option>
-        <option>Within a week</option>
-      </select>
-
-      <br />
-
-      <button
-        onClick={handleProcess}
-        className="bg-green-600 text-white px-6 py-3 rounded-lg"
-      >
-        Detect & Find Recyclers
-      </button>
-
-      {loading && <p className="mt-4">Processing...</p>}
-
-      {detected && (
-        <p className="font-bold mt-4">
-          Detected Waste Type:{" "}
-          <span className="text-green-700">{detected}</span>
+    <section className="py-24 bg-black text-gray-200">
+      <div className="max-w-3xl mx-auto px-4 text-center">
+        <h2 className="text-4xl font-bold mb-2 text-white">
+          Smart Waste Detection
+        </h2>
+        <p className="text-gray-400 mb-10">
+          Upload waste → AI detects → nearest recyclers found
         </p>
-      )}
 
-      {recyclers.length > 0 && (
-        <div className="mt-8 max-w-xl mx-auto">
-          <h3 className="font-semibold mb-2">Nearby Recyclers:</h3>
-          {recyclers.map((r, i) => (
-            <div
-              key={i}
-              className="bg-white p-3 rounded shadow mb-2 text-left"
+        <div className="bg-zinc-900 border border-zinc-700 p-8 rounded-2xl shadow-lg space-y-4 text-left">
+          <div>
+            <label className="block text-sm mb-1">Upload Image</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              className="w-full bg-black border border-zinc-700 text-white rounded-lg p-2"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm mb-1">Weight (kg)</label>
+            <input
+              type="number"
+              placeholder="e.g. 2"
+              value={weight}
+              onChange={(e) => setWeight(e.target.value)}
+              className="w-full bg-black border border-zinc-700 text-white rounded-lg p-2"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm mb-1">Urgency</label>
+            <select
+              value={urgency}
+              onChange={(e) => setUrgency(e.target.value)}
+              className="w-full bg-black border border-zinc-700 text-white rounded-lg p-2"
             >
-              <p className="font-bold">{r.display}</p>
-              <p className="text-sm text-gray-700">{r.address}</p>
-            </div>
-          ))}
+              <option>Within 24 hours</option>
+              <option>1-2 days</option>
+              <option>3-5 days</option>
+              <option>Within a week</option>
+            </select>
+          </div>
+
+          <button
+            onClick={detectAndFind}
+            disabled={loading}
+            className="w-full mt-4 bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-semibold transition"
+          >
+            {loading ? "Detecting..." : "Detect & Find Recyclers"}
+          </button>
         </div>
-      )}
+
+        {detected && (
+          <p className="mt-8 text-lg">
+            Detected Waste Type:{" "}
+            <span className="font-semibold text-green-400">
+              {detected}
+            </span>
+          </p>
+        )}
+
+        {recyclers.length > 0 && (
+          <div className="mt-10 space-y-4">
+            <h3 className="text-2xl font-semibold text-white">
+              Nearby Recyclers
+            </h3>
+            {recyclers.map((r, i) => (
+              <div
+                key={i}
+                className="bg-zinc-900 border border-zinc-700 rounded-lg p-4 shadow"
+              >
+                <p className="font-medium">{r.name}</p>
+                <p className="text-sm text-gray-400">
+                  {r.lat}, {r.lon}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </section>
   );
 }

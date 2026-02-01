@@ -9,18 +9,18 @@ export default function Navbar() {
   const [open, setOpen] = useState(false);
 
   return (
-    <nav className="bg-white shadow-md sticky top-0 z-50">
+    <nav className="bg-black/80 backdrop-blur shadow-md sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
 
         {/* Logo */}
-        <Link href="/" className="text-2xl font-bold text-green-600">
-          ReLoop<span className="text-gray-800">X</span>
+        <Link href="/" className="text-2xl font-bold text-green-400">
+          ReLoop<span className="text-white">X</span>
         </Link>
 
         {/* Desktop */}
         <div className="hidden md:flex gap-4 items-center">
           {session && (
-            <span className="text-gray-700 font-medium">
+            <span className="text-gray-300 font-medium">
               Hi, {session.user?.name?.split(" ")[0]} 👋
             </span>
           )}
@@ -51,7 +51,7 @@ export default function Navbar() {
 
         {/* Mobile Toggle */}
         <button
-          className="md:hidden text-2xl"
+          className="md:hidden text-2xl text-white"
           onClick={() => setOpen(!open)}
         >
           ☰
@@ -60,9 +60,9 @@ export default function Navbar() {
 
       {/* Mobile Menu */}
       {open && (
-        <div className="md:hidden bg-white px-4 pb-4 space-y-3 shadow">
+        <div className="md:hidden bg-zinc-900 px-4 pb-4 space-y-3 shadow-lg">
           {session && (
-            <p className="text-center text-gray-700">
+            <p className="text-center text-gray-300">
               Hi, {session.user?.name?.split(" ")[0]} 👋
             </p>
           )}
